@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "My DeepSeek",
+    "description": "A native replica of the DeepSeek chat app inside DeepSeek Harness: the official front end and wordmark, deep thinking and web search, import of the ZIP history exported by the official app, and conversations stored on local disk."
+  }
+}

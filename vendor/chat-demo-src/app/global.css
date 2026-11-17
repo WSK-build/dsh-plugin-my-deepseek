@@ -1,0 +1,48 @@
+:root {
+  --dsc-message-list-max-width: 840px;
+  --dsc-message-list-padding-horizontal: 44px;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --dsc-message-list-max-width: 712px;
+    --dsc-message-list-padding-horizontal: 36px;
+  }
+}
+
+.dsc-root {
+  overflow: hidden;
+  margin: 0;
+  word-break: break-word;
+  font-family: var(--dsc-font-family);
+  font-size: var(--dsc-font-size-m);
+  color: var(--dsc-alias-label-primary);
+  background-color: var(--dsc-alias-bg-base);
+  -webkit-text-size-adjust: none;
+  -webkit-tap-highlight-color: transparent;
+  font-feature-settings: 'kern';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --dsc-scroll-color: rgba(0, 0, 0, 0.08);
+  --dsc-scroll-color-hover: rgba(0, 0, 0, 0.15);
+}
+
+body[data-dsc-dark] {
+  color-scheme: dark;
+}
+
+body[data-dsc-dark] {
+  --dsc-scroll-color: rgba(255, 255, 255, 0.15);
+  --dsc-scroll-color-hover: rgba(255, 255, 255, 0.24);
+}
+
+
+
+@media not all and (min-width: 768px) {
+  .dsc-root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+}

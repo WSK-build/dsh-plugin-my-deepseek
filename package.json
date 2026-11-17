@@ -1,0 +1,82 @@
+{
+  "name": "dsh-plugin-my-deepseek",
+  "version": "0.1.0",
+  "description": "Unofficial DeepSeek chat app replica for DeepSeek Harness, with local conversation storage.",
+  "keywords": [
+    "dsh",
+    "deepseek",
+    "deepseek-harness",
+    "plugin",
+    "chat",
+    "web-ui"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WSK-build/dsh-plugin-my-deepseek.git"
+  },
+  "homepage": "https://github.com/WSK-build/dsh-plugin-my-deepseek#readme",
+  "bugs": {
+    "url": "https://github.com/WSK-build/dsh-plugin-my-deepseek/issues"
+  },
+  "author": "WSK-build",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "dist/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "NOTICE",
+    "vendor/LICENSE",
+    "docs/screenshots/*.png"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "engines": {
+    "dsh": "^0.2.2-rc.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node scripts/transform-css.mjs && node scripts/build.mjs && node scripts/wrap.mjs",
+    "prepack": "npm run build",
+    "audit": "node scripts/audit-client.mjs dist/client.js dsh-plugin-my-deepseek && node scripts/privacy-scan.mjs .",
+    "pack:check": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "@rspack/core": "2.0.2",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "clsx": "2.1.1",
+    "fflate": "0.8.3",
+    "idb": "8.0.3",
+    "katex": "0.16.22",
+    "mdast-util-find-and-replace": "3.0.2",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm": "3.1.0",
+    "mdast-util-math": "3.0.0",
+    "mermaid": "11.10.1",
+    "micromark-extension-gfm": "3.0.0",
+    "micromark-extension-llm-math": "3.1.0",
+    "prismjs": "1.30.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "4.4.7"
+  }
+}
