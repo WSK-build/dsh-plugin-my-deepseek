@@ -33,7 +33,7 @@ longer loses them.
 
 | | |
 |---|---|
-| DSH | `^0.2.2-rc.3` (declared as `engines.dsh`; verified on DSH 0.2.2-rc.3, and the plugin manager refuses runtimes outside that range) |
+| DSH | `>=0.2.2-rc.1` (declared as `engines.dsh`; verified on DSH 0.2.2-rc.1 and 0.2.2-rc.3. Older runtimes were never tested and are refused; newer ones are allowed, and a breaking change will be called out in the release notes) |
 | DeepSeek API key | required — enter your own in the panel's Settings |
 | Node.js | not needed to install; only to build from source |
 
