@@ -1,5 +1,10 @@
 # My DeepSeek
 
+[![npm version](https://img.shields.io/npm/v/dsh-plugin-my-deepseek?logo=npm&label=npm)](https://www.npmjs.com/package/dsh-plugin-my-deepseek)
+[![ci](https://github.com/WSK-build/dsh-plugin-my-deepseek/actions/workflows/ci.yml/badge.svg)](https://github.com/WSK-build/dsh-plugin-my-deepseek/actions/workflows/ci.yml)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-plugin-my-deepseek)](https://www.npmjs.com/package/dsh-plugin-my-deepseek)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 > An unofficial DeepSeek chat panel for **DeepSeek Harness (DSH)** — a native replica of the official
 > DeepSeek chat app, with conversations stored on local disk instead of the browser.
 
