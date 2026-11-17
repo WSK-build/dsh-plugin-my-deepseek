@@ -5,174 +5,162 @@
 [![npm downloads](https://img.shields.io/npm/dm/dsh-plugin-my-deepseek)](https://www.npmjs.com/package/dsh-plugin-my-deepseek)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> An unofficial DeepSeek chat panel for **DeepSeek Harness (DSH)** — a native replica of the official
-> DeepSeek chat app, with conversations stored on local disk instead of the browser.
+**在 DeepSeek Harness（DSH）里原生复刻 DeepSeek 聊天 App 的面板。** 面板跑的是官方 `deepseek-ai/chat-demo`
+前端本体，不是仿制界面；在此基础上把对话记录改存到本地磁盘，清浏览器缓存不再丢历史。
 
-This package bundles the official [`deepseek-ai/chat-demo`](https://github.com/deepseek-ai/chat-demo)
-front end and mounts it as a DSH panel. You get the real DeepSeek chat UI — not an imitation — with one
-addition: your conversations are written to a folder on this machine, so clearing the browser cache no
-longer loses them.
+[English](README.en.md) · 简体中文
 
-## Screenshots
+## 截图
 
-| Desktop | Mobile |
+| 桌面端 | 手机端 |
 | --- | --- |
-| ![Welcome screen](docs/screenshots/desktop-welcome.png) | ![Welcome screen on a phone](docs/screenshots/mobile-welcome.png) |
-| ![Settings and data management](docs/screenshots/desktop-settings.png) | ![Settings on a phone](docs/screenshots/mobile-settings.png) |
+| ![欢迎页](docs/screenshots/desktop-welcome.png) | ![手机欢迎页](docs/screenshots/mobile-welcome.png) |
+| ![设置与数据管理](docs/screenshots/desktop-settings.png) | ![手机设置](docs/screenshots/mobile-settings.png) |
 
-## What you get
+## 安装
 
-- **The official front end.** Multi-conversation history with automatic titles, message branches,
-  regenerate, stop, continue, attachments (upload / paste / drag), voice input and read-aloud.
-- **Deep thinking and web search**, with source citations, streamed into the same UI you already know.
-- **Markdown, code highlighting, KaTeX and Mermaid** in replies.
-- **ZIP history import/export**, using the archive format the official app exports.
-- **Local persistence.** Every conversation is one JSON file on disk; the browser only caches it.
+### 前置条件
 
-## Requirements
+| 项 | 要求 |
+| --- | --- |
+| DSH | `>= 0.2.2-rc.1`（声明在 `engines.dsh`；已在 0.2.2-rc.1 与 0.2.2-rc.3 上验证，更早版本会拒绝安装） |
+| DeepSeek API Key | 必需，自己填写，不随插件分发 |
+| Node.js | **不需要**，包内已带构建产物 |
 
-| | |
-|---|---|
-| DSH | `>=0.2.2-rc.1` (declared as `engines.dsh`; verified on DSH 0.2.2-rc.1 and 0.2.2-rc.3. Older runtimes were never tested and are refused; newer ones are allowed, and a breaking change will be called out in the release notes) |
-| DeepSeek API key | required — enter your own in the panel's Settings |
-| Node.js | not needed to install; only to build from source |
+### 方式一：插件管理器（推荐）
 
-## Install
+1. 打开 DSH 的 **插件** 页面；
+2. 安装 `dsh-plugin-my-deepseek`；
+3. 启用该 bundle，侧边栏出现 **My DeepSeek** 入口。
 
-From npm (once published):
-
-- **Plugin manager (recommended).** Open **Plugins** in DSH, install `dsh-plugin-my-deepseek`, and enable
-  the bundle. The manager adds the package to the profile and activates its rows.
-- **CLI.** `dsh plugin add dsh-plugin-my-deepseek` adds the package to the current profile; enable the
-  bundle afterwards in **Plugins**.
-
-From source:
+### 方式二：命令行
 
 ```bash
-git clone https://github.com/WSK-build/dsh-plugin-my-deepseek.git && cd dsh-plugin-my-deepseek
-pnpm install
-pnpm build           # produces dist/client.js
+dsh plugin add dsh-plugin-my-deepseek
 ```
 
-then install this directory as a bundle. One copy per profile: the host route prefix is fixed, so a
-second copy fails activation with a duplicate-route error.
+装完后仍需在 **插件** 页面启用 bundle。
 
-## First run
+### 方式三：从源码
 
-Open **My DeepSeek** in the DSH sidebar. On the first visit the panel asks for a DeepSeek API key
-(Settings → paste the key; it is verified against `GET /models`, which costs nothing). Without a key the
-panel routes every action to Settings — that is the upstream app's own behaviour, not a broken button.
+```bash
+git clone https://github.com/WSK-build/dsh-plugin-my-deepseek.git
+cd dsh-plugin-my-deepseek
+pnpm install
+pnpm build
+```
 
-## Where your data lives
+然后把这个目录作为 bundle 安装。
 
-| Data | Location | Closing the browser | Clearing site data |
-|---|---|---|---|
-| Conversations | `%LOCALAPPDATA%\my-deepseek-panel\sessions\*.json` (Windows), `~/Library/Application Support/my-deepseek-panel/sessions` (macOS), `$XDG_DATA_HOME/my-deepseek-panel/sessions` (Linux) | survives | **survives** |
-| API key | this browser's `localStorage`, per origin | survives | lost, enter it again |
-| Panel settings | same `localStorage` | survives | reset |
-| Attachment originals | this browser's IndexedDB | survives | lost (messages remain, files do not open) |
+> **只能装一份。** Host 路由前缀是固定的 `/my-deepseek/api`，装第二份会以「路由重复」失败激活。
+> 从本地目录切到 npm 版本时，若安装报 `EPERM`，先在插件页面卸载旧的一份。
 
-Set `DSH_CHAT_DATA_DIR` to store conversations somewhere else. One file per conversation, written
-atomically (temp file + rename), so a crash cannot leave a half-written session behind.
+## 首次运行
 
-`localStorage` is not a cache: closing the browser keeps it; a different browser, a private window or a
-different port starts without it. **The API key never leaves your machine and is never written to disk
-by this package** — the panel calls `api.deepseek.com` directly from your browser.
+打开侧边栏的 **My DeepSeek**。首次进入面板会要求填 API Key（设置 → 粘贴 → 校验走 `GET /models`，不消耗额度）。
+没有 Key 时面板的按钮都会跳到设置页——这是官方 App 本来的行为，不是坏了。
 
-There is no telemetry, no analytics and no account. The only network calls are the ones the chat itself
-makes to the DeepSeek API you configured.
+## 功能
 
-## Import and export
+- **官方前端本体**：多会话历史、自动标题、消息分支、重新生成、停止、继续、附件（上传 / 粘贴 / 拖拽）、语音输入与朗读。
+- **深度思考与联网搜索**，带来源引用，流式输出在同一个界面里。
+- **Markdown、代码高亮、KaTeX、Mermaid**。
+- **ZIP 历史导入导出**，使用官方 App 导出的归档格式。
+- **本地持久化**：每个会话一个 JSON 文件，浏览器只做缓存。
 
-Settings → Data management → **Import history** accepts the ZIP archive exported by the official
-DeepSeek app. Importing replaces the panel's conversations; **Export** produces the same format, with
-the original image attachments when they are available locally.
+## 数据与隐私
 
-## Known limits
+| 数据 | 存放位置 | 关浏览器 | 清站点数据 |
+| --- | --- | --- | --- |
+| 对话（正文、思考、引用、搜索结果） | 本地磁盘 `sessions/<id>.json` | 保留 | **保留** |
+| API Key | 本浏览器 `localStorage`（按源隔离） | 保留 | 丢失，需重填 |
+| 面板设置（语言、主题、开关） | 同上 | 保留 | 恢复默认 |
+| 附件原件 | 本浏览器 IndexedDB | 保留 | 丢失（消息文字仍在，文件打不开） |
 
-- **Conversations are not DSH sessions.** They are this plugin's own files: they do not appear in the
-  DSH sidebar, session search, or the DSH session log. That is deliberate — it keeps the replica's
-  fidelity (thinking signatures, inline citation anchors, server-side search blocks) intact and keeps
-  the package independent of DSH's data model.
-- **The model is fixed** to `deepseek-flash`, the default of the official demo.
-- **Attachment originals stay in the browser.** After clearing site data, an old message still shows its
-  text and file name, but opening the file fails.
-- **One copy per DSH profile.**
+数据目录（可用环境变量 `DSH_CHAT_DATA_DIR` 覆盖）：
 
-## Develop
+| 平台 | 路径 |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\my-deepseek-panel\sessions` |
+| macOS | `~/Library/Application Support/my-deepseek-panel/sessions` |
+| Linux | `$XDG_DATA_HOME/my-deepseek-panel/sessions`（默认 `~/.local/share`） |
+
+每个会话一个文件，写入是原子的（临时文件 + rename），崩溃不会留下半截会话。
+
+`localStorage` 不是缓存：关浏览器、重启都还在；换浏览器、无痕窗口、换端口等于新源，需要重新填 Key。
+**API Key 只在本机浏览器里，本插件不会把它写到磁盘**——面板直接调用 `api.deepseek.com`。
+
+没有遥测、没有统计、没有账号体系。除你配置的 DeepSeek API 之外，插件不发起任何网络请求。
+
+## 导入与导出
+
+设置 → 数据管理：
+
+- **导入历史**：接受官方 DeepSeek App 导出的 ZIP，导入会覆盖面板内现有对话；
+- **导出**：生成同格式归档，本地有原件的图片会一起带上。
+
+## 已知限制
+
+- **对话不是 DSH 会话**：它们只是本插件自己的文件，不会出现在 DSH 侧边栏、会话搜索或会话日志里。这是刻意的——保留官方前端的完整保真度（思考签名、行内引用锚点、服务端搜索块），也让插件不依赖 DSH 的数据模型。
+- **模型固定**为 `deepseek-flash`，即官方 demo 的默认值。
+- **附件原件留在浏览器**：清站点数据后，旧消息的文字和文件名还在，但打开文件会失败。
+- **一个 DSH profile 只能装一份。**
+
+## 开发
 
 ```bash
 pnpm install
-pnpm build      # transform tokens -> rspack bundle -> wrap into a DSH client module
-pnpm run audit  # module id == package name, baseline-only externals, embedded CSS, privacy scan
-pnpm pack:check # what npm would publish
+pnpm build      # 令牌改名 -> rspack 打包 -> 包装成 DSH 客户端模块
+pnpm run audit  # 校验模块 id、外部依赖、内联样式、隐私扫描
+pnpm pack:check # 查看 npm 会发布哪些文件
 ```
 
 ```text
-index.js                 host half: the on-disk conversation store, one route prefix
-dist/client.js           built client module (generated, not committed)
-icon.svg                 official whale mark, generated
-src/entry.tsx            mounts the demo's <App /> in the panel, syncs the theme
-src/brand-wordmark.tsx   official wordmark artwork, generated
-src/store-api.ts         client for the store routes
-src/root.css             panel root placement
-vendor/chat-demo-src/    upstream demo source (see NOTICE for the exact changes)
-scripts/                 token rename, bundling, wrapping, artwork extraction, audits
+index.js                 宿主半：本地磁盘会话存储，一个路由前缀
+dist/client.js           构建产物（生成，不入库）
+icon.svg                 官方鲸鱼图标（生成）
+src/entry.tsx            把 demo 的 <App /> 挂进面板，同步主题
+src/brand-wordmark.tsx   官方字标（生成）
+src/store-api.ts         存储接口客户端
+src/root.css             面板根节点定位
+vendor/chat-demo-src/    上游 demo 源码（改动清单见 NOTICE）
+scripts/                 令牌改名、打包、包装、图标提取、审计
 ```
 
-`dist/` is generated by `prepack`, so `npm publish` always ships a fresh bundle.
+`dist/` 由 `prepack` 生成，因此 `npm publish` 永远发的是新构建。
 
-## Release
+## 发布
 
-Publishing runs in CI, so a local `npm login` is never required — useful when the npm account and
-the git identity use different email addresses. The npm account is identified by the token, not by
-its email.
+发布在 CI 里完成，本地不需要 `npm login`。
 
-1. **Create a granular access token** — npmjs.com → Access Tokens → Generate New Token → *Granular*:
-   `read and write`, *All packages*, and enable **Bypass two-factor authentication** so the workflow
-   does not need an OTP.
-2. **Store it** as the repository secret `NPM_TOKEN`
-   (Settings → Secrets and variables → Actions → New repository secret).
-3. **Bump the version and tag it:**
+1. npmjs.com → Access Tokens → 新建 **Granular** token：`read and write`、*All packages*；
+2. 存到仓库 secret `NPM_TOKEN`（Settings → Secrets and variables → Actions）；
+3. 升版本并打 tag：
 
    ```bash
-   npm version patch --no-git-tag-version   # or minor / major
-   git commit -am "release: v0.1.1"
-   git tag v0.1.1
+   npm version patch --no-git-tag-version
+   git commit -am "release: v0.1.2"
+   git tag v0.1.2
    git push origin main --tags
    ```
 
-4. The `release` workflow checks that the tag matches `package.json`, builds, audits, then runs
-   `npm publish --provenance`. Manual runs from the Actions tab default to a dry run.
+4. `release` workflow 会校验 tag 与 `package.json` 版本一致，然后构建、审计、`npm publish --provenance`。
+   手动触发默认是 dry run。
 
-Provenance is only generated for a public repository, and `repository.url` in `package.json` must
-point at it. The npm account email and the commit email are independent — npm does not compare them.
+provenance 只在公开仓库生成，且 `repository.url` 必须指向它。
 
-## How it differs from the upstream demo
+## 与上游 demo 的差异
 
-The upstream demo is a standalone static site. This package keeps its UI intact and changes only the
-plumbing:
+上游 demo 是一个独立的静态站点。本插件保留它的界面不动，只改管线：
 
-- design tokens are renamed into a private `--dsc-*` namespace and page rules are scoped to the panel —
-  the panel keeps the official palette without touching DSH's own theme tokens;
-- the sidebar title shows the official wordmark;
-- conversation persistence moves from IndexedDB to the host half, which writes one JSON file per
-  conversation under the platform data directory.
+- 设计令牌改名为私有的 `--dsc-*` 命名空间，页面级规则收进面板根节点——沿用官方配色，但不污染 DSH 自己的主题；
+- 侧边栏标题换成官方字标；
+- 会话持久化从 IndexedDB 移到宿主半，按会话写在平台数据目录下。
 
-See [NOTICE](NOTICE) for the full list.
+完整改动清单见 [NOTICE](NOTICE)。
 
-## Trademarks and credits
+## 商标与许可
 
-The DeepSeek name, whale mark and wordmark are trademarks of DeepSeek; they are used here only to
-identify the product being replicated and are not covered by the MIT license. **This project is
-unofficial and is not affiliated with, endorsed by or supported by DeepSeek.** The upstream demo is MIT
-licensed (see [`vendor/LICENSE`](vendor/LICENSE)); this project's own code is MIT licensed too (see
-[`LICENSE`](LICENSE)).
-
-## 中文摘要
-
-在 **DeepSeek Harness** 里原生复刻 DeepSeek 聊天 App 的体验：面板跑的是官方 chat-demo 前端本体，
-支持深度思考、联网搜索与引用、附件、语音、KaTeX、Mermaid 与多会话，并可导入官方 App 导出的 ZIP
-历史。对话记录写在本地磁盘（`%LOCALAPPDATA%\my-deepseek-panel\sessions`），清浏览器缓存不会丢；
-API Key 只保存在你自己的浏览器里。本项目为非官方复刻，图标与字标为 DeepSeek 官方资产，商标归
-DeepSeek 所有，仅用于标识所复刻的产品。
+DeepSeek 名称、鲸鱼图标和 `deepseek` 字标是 DeepSeek 的商标，此处仅用于标识被复刻的产品，不在 MIT 许可范围内。
+**本项目为非官方项目，与 DeepSeek 无隶属、背书或支持关系。** 上游 demo 为 MIT 许可（见
+[`vendor/LICENSE`](vendor/LICENSE)），本项目自有代码同样是 MIT（见 [`LICENSE`](LICENSE)）。
