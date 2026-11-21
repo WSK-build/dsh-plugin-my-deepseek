@@ -124,11 +124,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # android/capacitor.config.json 的 webDir 是 "www"，按 android/ 目录解析，
-      # 而 build-mobile.mjs 默认输出 build/mobile/www；直接让构建落到 webDir，
-      # 与 android/build-apk.ps1 的产物布局保持一致，也省掉一次整目录复制。
-      - name: Build the web assets into the Capacitor web root
-        run: pnpm run build:mobile -- --out android/www
+      # load-check requires all three bundles, so build them before running the
+      # same gates the package and the site run.
+      - name: Build every bundle
+        run: pnpm build && pnpm build:mobile && pnpm build:web
 
       # The APK carries the same page, so it gets the same page-level gates.
       - name: Check the bundles actually load (build constants replaced)
@@ -136,6 +135,12 @@ jobs:
 
       - name: Check the locale keys line up
         run: pnpm run audit:i18n
+
+      # android/capacitor.config.json 的 webDir 是 "www"，按 android/ 目录解析，
+      # 而 build-mobile.mjs 默认输出 build/mobile/www；直接让构建落到 webDir，
+      # 与 android/build-apk.ps1 的产物布局保持一致，也省掉一次整目录复制。
+      - name: Build the web assets into the Capacitor web root
+        run: pnpm run build:mobile -- --out android/www
 
       - name: Sync Capacitor
         working-directory: android

@@ -19,7 +19,7 @@ import vm from 'node:vm'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** 构建期注入的常量；产物中一旦残留原文即为未定义。 */
-const BUILD_CONSTANTS = ['__API_ORIGIN__', '__CHAT_MEMORY_ONLY__']
+const BUILD_CONSTANTS = ['__API_ORIGIN__', '__CHAT_MEMORY_ONLY__', '__APP_VERSION__', '__APP_TARGET__']
 
 const bundles = [
   { file: 'dsh-plugin/dist/client.js', label: 'DSH client bundle' },
