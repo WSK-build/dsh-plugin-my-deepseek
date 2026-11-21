@@ -106,16 +106,28 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # android-actions/setup-android installs the retired "tools" package and
+      # fails on current runners, so use the SDK the image already ships and add
+      # only the components this project needs.
+      - name: Install the Android SDK packages
+        run: |
+          sdkmanager="$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -n 1)"
+          if [ -z "$sdkmanager" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME" >&2
+            exit 1
+          fi
+          yes | "$sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          echo "platforms:" && ls "$ANDROID_HOME/platforms"
+          echo "build-tools:" && ls "$ANDROID_HOME/build-tools"
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # android/capacitor.config.json 的 webDir 是 "www"，按 android/ 目录解析，
-      # 而 build-mobile.mjs 默认输出 build/mobile/www；直接让构建落到 webDir，
-      # 与 android/build-apk.ps1 的产物布局保持一致，也省掉一次整目录复制。
-      - name: Build the web assets into the Capacitor web root
-        run: pnpm run build:mobile -- --out android/www
+      # load-check requires all three bundles, so build them before running the
+      # same gates the package and the site run.
+      - name: Build every bundle
+        run: pnpm build && pnpm build:mobile && pnpm build:web
 
       # The APK carries the same page, so it gets the same page-level gates.
       - name: Check the bundles actually load (build constants replaced)
@@ -123,6 +135,12 @@ jobs:
 
       - name: Check the locale keys line up
         run: pnpm run audit:i18n
+
+      # android/capacitor.config.json 的 webDir 是 "www"，按 android/ 目录解析，
+      # 而 build-mobile.mjs 默认输出 build/mobile/www；直接让构建落到 webDir，
+      # 与 android/build-apk.ps1 的产物布局保持一致，也省掉一次整目录复制。
+      - name: Build the web assets into the Capacitor web root
+        run: pnpm run build:mobile -- --out android/www
 
       - name: Sync Capacitor
         working-directory: android
