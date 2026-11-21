@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-const text = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
+const text = readFileSync(new URL('../dsh-plugin/dist/client.js', import.meta.url), 'utf8')
 const re = /require\("([^"]+)"\)/g
 const seen = new Map()
 let match

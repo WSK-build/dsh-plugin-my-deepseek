@@ -231,8 +231,22 @@ export const IconRefreshOutline16 = () => (
   </svg>
 )
 
-export const IconSendOutline16 = () => (
-  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+export const IconForkOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M1.01503 8.0001L5.6964 8.0001C6.41913 8.0001 6.78049 8.0001 7.12115 7.91951C7.4232 7.84804 7.71233 7.73014 7.97821 7.57C8.27809 7.38939 8.5364 7.13669 9.05303 6.63129L11.3281 4.40564"
+      stroke="currentColor"
+    />
+    <path
+      d="M1.01221 7.9999L5.6964 7.9999C6.41913 7.9999 6.78049 7.9999 7.12115 8.08049C7.4232 8.15196 7.71233 8.26986 7.97821 8.43C8.27809 8.61061 8.5364 8.86331 9.05303 9.36871L11.3281 11.5944"
+      stroke="currentColor"
+    />
+    <circle cx="12.4502" cy="3.3079" r="1.56962" stroke="currentColor" />
+    <circle cx="12.4502" cy="12.6921" r="1.56962" stroke="currentColor" />
+  </svg>
+)
+
+export const IconSendOutline16 = () => (  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
       d="M8.3125 0.980206C8.66767 1.05312 8.97902 1.2042 9.2627 1.43235C9.48724 1.613 9.73029 1.85795 9.97949 2.10716L14.707 6.8347L13.293 8.24876L9 3.95579V15.0417H7V3.95579L2.70703 8.24876L1.29297 6.8347L6.02051 2.10716C6.26971 1.85795 6.51277 1.613 6.7373 1.43235C6.97662 1.23988 7.28445 1.04404 7.6875 0.980206C7.8973 0.947029 8.1031 0.955183 8.3125 0.980206Z"
       fill="currentColor"

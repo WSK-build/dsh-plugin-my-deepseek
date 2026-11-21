@@ -114,6 +114,10 @@ export type Session = {
   messages: Message[]
   /** undefined 表示线性消息列表；null 表示空会话。 */
   rootMessageId?: string | null
+  /** 分叉来源会话的 id；不属于官方导出格式，导出时剥离。 */
+  parentSessionId?: string
+  /** 分叉起点在来源会话中的消息 id；不属于官方导出格式，导出时剥离。 */
+  forkedFromMessageId?: string
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

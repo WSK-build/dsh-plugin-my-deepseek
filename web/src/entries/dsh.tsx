@@ -1,35 +1,40 @@
 /**
- * Harness adapter for the official chat-demo.
+ * 官方 chat-demo 的 Harness 适配层。
  *
- * The demo itself is vendored unmodified apart from token renaming: this file
- * only mounts its `<App />` in the Harness `main` panel and mirrors the Harness
- * theme onto the demo's private `data-dsc-dark` flag.
+ * demo 本体除令牌改名外未作改动：本文件只把它的 `<App />` 挂进 Harness 的 `main`
+ * 面板，并让 demo 私有的 `data-dsc-dark` 标记与面板自身的主题设置保持一致。
  */
 import { useEffect } from 'react'
-import { App } from '../vendor/chat-demo-src/app/App.js'
-import '../vendor/chat-demo-src/app/theme.css'
-import '../vendor/chat-demo-src/app/global.css'
-import './root.css'
+import { App } from '../../../vendor/chat-demo-src/app/App.js'
+import { useTheme } from '../../../vendor/chat-demo-src/app/theme.js'
+import '../../../vendor/chat-demo-src/app/theme.css'
+import '../../../vendor/chat-demo-src/app/global.css'
+import '../styles/root.css'
 
-/** Sidebar entry id; the matching `main` panel is keyed by it. */
+/** 侧边栏入口 id；对应的 `main` 面板以它作为 key。 */
 const PANEL_ID = 'my-deepseek'
 const DARK_ATTRIBUTE = 'data-dsc-dark'
 
-const setDark = (dark: boolean) => {
+/**
+ * 样式表按 `body` 上的属性判定深色，但面板不能改变宿主页面的外观，
+ * 因此这里只切换该标记；demo 自带的页面级背景同步不进入 Harness 文档。
+ */
+const applyPanelTheme = (dark: boolean) => {
   const body = document.body
   if (dark) body.setAttribute(DARK_ATTRIBUTE, '')
   else body.removeAttribute(DARK_ATTRIBUTE)
 }
 
-const isDarkTheme = (theme: any): boolean => theme?.active?.colorScheme === 'dark'
-
-/** The page: the demo fills the panel it is dropped into. */
+/** 页面本体：demo 铺满它被挂载到的面板。 */
 const DeepSeekChatPage = () => {
+  const theme = useTheme()
+
   useEffect(() => {
-    // The demo's own document-level listeners assume it owns the page; keep the
-    // attribute in sync when the panel remounts after a theme switch.
-    return () => setDark(document.body.hasAttribute(DARK_ATTRIBUTE))
-  }, [])
+    applyPanelTheme(theme === 'dark')
+  }, [theme])
+
+  useEffect(() => () => applyPanelTheme(false), [])
+
   return (
     <div className="dsc-root">
       <App />
@@ -37,7 +42,7 @@ const DeepSeekChatPage = () => {
   )
 }
 
-/** Sidebar glyph: a chat bubble with the spark of a reply in flight. */
+/** 侧边栏图标：对话气泡加一枚应答的星芒。 */
 const ChatPanelIcon = ({ size = 18 }: { size?: number }) => (
   <svg
     width={size}
@@ -76,19 +81,7 @@ export function apply(ctx: any) {
     return () => style.remove()
   }, 'my-deepseek: styles')
 
-  const updateTheme = (theme?: any) => {
-    const active = theme ?? ctx.get('theme')?.getTheme?.()
-    setDark(isDarkTheme(active))
-  }
-
-  ctx.effect(() => {
-    updateTheme()
-    const off = ctx.get('theme')?.on?.('theme/change', (theme: any) => updateTheme(theme))
-    return () => {
-      off?.()
-      document.body.removeAttribute(DARK_ATTRIBUTE)
-    }
-  }, 'my-deepseek: theme')
+  ctx.effect(() => () => document.body.removeAttribute(DARK_ATTRIBUTE), 'my-deepseek: theme cleanup')
 
   ctx.effect(
     () =>

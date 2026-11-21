@@ -36,9 +36,9 @@ const applyTheme = (theme: Theme) => {
   body.classList.toggle('dark', theme === 'dark')
   body.classList.toggle('light', theme === 'light')
   if (theme === 'dark') {
-    body.setAttribute('data-ds-dark-theme', 'dark')
+    body.setAttribute('data-dsc-dark', 'dark')
   } else {
-    body.removeAttribute('data-ds-dark-theme')
+    body.removeAttribute('data-dsc-dark')
   }
   document.documentElement.style.colorScheme = theme
   // 首次背景色同步在样式表加载完成后执行，适配 WebKit 的 defer 脚本执行顺序。

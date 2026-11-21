@@ -3,6 +3,7 @@ name: release
 # Publishes to npm when a version tag is pushed, e.g.:
 #   git tag v0.1.0 && git push origin v0.1.0
 # Manual runs default to a dry run: they pack and verify without publishing.
+# The same tag also produces the Android APK and the web experience build.
 on:
   push:
     tags: ['v*']
@@ -14,7 +15,7 @@ on:
         default: true
 
 permissions:
-  contents: read
+  contents: write # required to attach build outputs to the release
   id-token: write # required by npm provenance
 
 jobs:
@@ -49,8 +50,24 @@ jobs:
       - name: Build the client bundle
         run: pnpm build
 
+      # The load check covers all three bundles, so every build it expects must run here.
+      - name: Build the standalone page
+        run: pnpm build:mobile
+
+      - name: Build the experience page
+        run: pnpm build:web
+
       - name: Audit artifacts
         run: pnpm run audit
+
+      - name: Check the bundles actually load (build constants replaced)
+        run: pnpm run audit:load
+
+      - name: Check the locale keys line up
+        run: pnpm run audit:i18n
+
+      - name: Check the JavaScript compatibility floor
+        run: pnpm run audit:compat && pnpm run lint:compat
 
       - name: Pack and verify (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry-run
@@ -61,3 +78,173 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  android:
+    runs-on: ubuntu-latest
+    # step 级 if 的条件上下文白名单不含 secrets，签名材料只能先落到 env 再判空；
+    # 因此四个签名值统一定义在 job 级 env：if 读得到，Gradle 步骤也直接继承。
+    env:
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The APK build needs an SDK and a JDK that Gradle 8 accepts.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # android/capacitor.config.json 的 webDir 是 "www"，按 android/ 目录解析，
+      # 而 build-mobile.mjs 默认输出 build/mobile/www；直接让构建落到 webDir，
+      # 与 android/build-apk.ps1 的产物布局保持一致，也省掉一次整目录复制。
+      - name: Build the web assets into the Capacitor web root
+        run: pnpm run build:mobile -- --out android/www
+
+      # The APK carries the same page, so it gets the same page-level gates.
+      - name: Check the bundles actually load (build constants replaced)
+        run: pnpm run audit:load
+
+      - name: Check the locale keys line up
+        run: pnpm run audit:i18n
+
+      - name: Sync Capacitor
+        working-directory: android
+        run: |
+          npm install --no-audit --no-fund
+          npx cap sync android
+
+      # cap sync 会写回 Capacitor 默认的 drawable/splash.png，与仓库自带的
+      # drawable/splash.xml 在 Gradle 资源合并阶段同名冲突；处理方式与
+      # android/build-apk.ps1 一致。
+      - name: Drop the Capacitor-generated splash bitmap
+        run: find android/android/app/src/main/res -name 'splash.png' -delete
+
+      - name: Build the debug APK
+        working-directory: android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --console=plain
+
+      # The release APK is built unsigned and signed afterwards: Gradle drops V2
+      # when V3 is enabled, and scripts/sign-apk.mjs needs explicit control over
+      # the scheme flags. Signing only runs when all four secrets are present.
+      - name: Build the unsigned release APK
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android/android
+        run: ./gradlew assembleRelease --console=plain
+
+      - name: Sign the release APK
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          MY_DEEPSEEK_KEYSTORE: ${{ runner.temp }}/release.jks
+          MY_DEEPSEEK_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          MY_DEEPSEEK_KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          MY_DEEPSEEK_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$MY_DEEPSEEK_KEYSTORE"
+          node scripts/sign-apk.mjs \
+            android/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/android/app/build/outputs/apk/release/app-release.apk
+          node scripts/verify-apk-signature.mjs \
+            android/android/app/build/outputs/apk/release/app-release.apk
+          rm -f "$MY_DEEPSEEK_KEYSTORE"
+
+      # The APK versionName equals the package version, so the artifact name
+      # carries the same number: my-deepseek-<version>-<debug|release>.apk.
+      - name: Collect APKs
+        run: |
+          mkdir -p artifacts
+          version="$(node -p "require('./package.json').version")"
+          find android/android/app/build/outputs/apk -name '*.apk' -print
+          for apk in $(find android/android/app/build/outputs/apk -name '*.apk'); do
+            kind="$(basename "$(dirname "$apk")")"
+            case "$(basename "$apk")" in
+              *-unsigned.apk) continue ;;
+            esac
+            cp "$apk" "artifacts/my-deepseek-${version}-${kind}.apk"
+          done
+          ls -l artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: artifacts/*.apk
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+
+  website:
+    runs-on: ubuntu-latest
+    permissions:
+      # Job-level permissions replace the workflow-level set, so contents must be
+      # listed here explicitly: checkout reads the repository and Pages reads the site.
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The audit gate covers all three bundles, so build them all here rather than
+      # letting the deployed page skip a check the package build would fail on.
+      - name: Build every bundle
+        run: pnpm build && pnpm build:mobile
+
+      # Memory-only build: nothing the visitor types is persisted.
+      - name: Build the experience page
+        run: pnpm build:web
+
+      - name: Audit artifacts
+        run: pnpm run audit
+
+      - name: Check the bundles actually load (build constants replaced)
+        run: pnpm run audit:load
+
+      - name: Check the locale keys line up
+        run: pnpm run audit:i18n
+
+      - name: Check the JavaScript compatibility floor
+        run: pnpm run audit:compat && pnpm run lint:compat
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/app
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

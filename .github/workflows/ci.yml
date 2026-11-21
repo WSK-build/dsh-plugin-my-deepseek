@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, app]
   pull_request:
 
 jobs:
@@ -26,8 +26,39 @@ jobs:
       - name: Build the client bundle
         run: pnpm build
 
+      - name: Run the shared-layer tests
+        run: pnpm test
+
+      - name: Build the standalone web app
+        run: pnpm build:mobile
+
+      - name: Build the experience page
+        run: pnpm build:web
+
       - name: Audit artifacts (module id, externals, embedded CSS, privacy)
         run: pnpm run audit
 
+      - name: Check the bundles actually load (build constants replaced)
+        run: pnpm run audit:load
+
+      # TypeScript is not installed, so the `satisfies` guard in the locale files
+      # never runs; a missing key only fails at render time, in the UI.
+      - name: Check the locale keys line up
+        run: pnpm run audit:i18n
+
+      # 语法面与 API 面分开校验：产物语法不得越过 ES2022，运行时 API 不得越过
+      # Chrome 110 的 WebView 门槛；两者都依赖上面三个构建步骤的输出。
+      - name: Check bundle syntax against the ES2022 target
+        run: pnpm run audit:compat
+
+      - name: Check runtime APIs against the Chrome 110 WebView floor
+        run: pnpm run lint:compat
+
       - name: Check the published file list
         run: npm pack --dry-run
+
+      # The CSS transform rewrites vendored stylesheets in place. It is idempotent on
+      # an already-transformed tree, so a dirty tree here means a build step mutated
+      # tracked sources; fail rather than let that slip into a commit.
+      - name: Check the build did not modify tracked sources
+        run: git diff --exit-code

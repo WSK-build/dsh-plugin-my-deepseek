@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-my-deepseek",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Unofficial DeepSeek chat app replica for DeepSeek Harness, with local conversation storage.",
   "keywords": [
     "dsh",
@@ -22,15 +22,15 @@
   "author": "WSK-build",
   "type": "module",
   "exports": {
-    ".": "./index.js",
-    "./client": "./dist/client.js",
+    ".": "./dsh-plugin/index.js",
+    "./client": "./dsh-plugin/dist/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
   "files": [
-    "index.js",
-    "dist/client.js",
-    "cordis.patch.yml",
+    "dsh-plugin/index.js",
+    "dsh-plugin/dist/client.js",
+    "dsh-plugin/cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
     "README.md",
@@ -41,7 +41,7 @@
   ],
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": "./dsh-plugin/cordis.patch.yml"
     },
     "client": {
       "platform": "web",
@@ -56,8 +56,15 @@
   },
   "scripts": {
     "build": "node scripts/transform-css.mjs && node scripts/build.mjs && node scripts/wrap.mjs",
+    "build:mobile": "node scripts/build-mobile.mjs",
+    "build:web": "node scripts/build-mobile.mjs --out website/app --memory-only",
+    "test": "node --experimental-strip-types --test web/src/shared/fork.test.ts web/src/shared/account-routing.test.ts web/src/shared/compression-guard.test.ts && node --experimental-strip-types --test \"web/src/shared/context/**/*.test.ts\"",
     "prepack": "npm run build",
-    "audit": "node scripts/audit-client.mjs dist/client.js dsh-plugin-my-deepseek && node scripts/privacy-scan.mjs .",
+    "audit": "node scripts/audit-client.mjs dsh-plugin/dist/client.js dsh-plugin-my-deepseek && node scripts/privacy-scan.mjs .",
+    "audit:load": "node scripts/load-check.mjs",
+    "audit:i18n": "node scripts/check-i18n.mjs",
+    "lint:compat": "node compat/scan-api-floor.mjs --sources",
+    "audit:compat": "es-check es2022 build/mobile/www/app.js dsh-plugin/dist/client.js website/app/app.js && node compat/scan-api-floor.mjs --bundles",
     "pack:check": "npm pack --dry-run"
   },
   "devDependencies": {
@@ -65,6 +72,7 @@
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",
     "clsx": "2.1.1",
+    "es-check": "9.9.0",
     "fflate": "0.8.3",
     "idb": "8.0.3",
     "katex": "0.16.22",

@@ -15,6 +15,7 @@ import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
+import { restoreAccountSession } from '../../../web/src/shared/account.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
@@ -69,8 +70,9 @@ export const App = () => {
 
   useEffect(() => {
     void initChat()
-    // 首次打开先在设置里输入 API Key
-    ensureApiKey()
+    // 冷启动时账号登录状态还是 idle，此时索要 API Key 会让已登录用户每次启动都被设置弹窗拦截；
+    // 恢复在后台进行，界面照常渲染，只把弹窗判定推迟到恢复有结论之后。
+    void restoreAccountSession().then(ensureApiKey)
   }, [])
 
   return (

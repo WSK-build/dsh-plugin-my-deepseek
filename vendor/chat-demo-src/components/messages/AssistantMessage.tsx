@@ -1,10 +1,11 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo } from 'react'
-import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
+import { IconForkOutline16, IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
+import { showToast } from '../base/toastState.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
-import { continueReply, regenerateReply } from '../../services/chat/store.js'
+import { continueReply, forkFromMessage, regenerateReply } from '../../services/chat/store.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { openSettings } from '../settings/settingsDialogState.js'
@@ -154,6 +155,18 @@ export const AssistantMessage = memo(function AssistantMessage({
               onClick={() => {
                 stopReadAloud()
                 regenerateReply(sessionId, message.id)
+              }}
+            />
+            <IconButton
+              icon={<IconForkOutline16 />}
+              tooltip={t('forkFromHere')}
+              tooltipPlacement="bottom"
+              disabled={busy}
+              onClick={() => {
+                stopReadAloud()
+                if (!forkFromMessage(sessionId, message.id)) {
+                  showToast(t('forkUnavailable'))
+                }
               }}
             />
           </div>

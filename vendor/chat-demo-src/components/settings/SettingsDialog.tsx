@@ -20,6 +20,7 @@ import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces } from '../../services/location.js'
 import {
   isChineseBrowser,
+  setCompaction,
   setLocale,
   setLocation,
   setThemePreference,
@@ -33,6 +34,9 @@ import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
+import { AccountField } from '../../../../web/src/components/AccountField.js'
+import { VersionRow } from '../../../../web/src/components/VersionRow.js'
+import { saveFile, SaveUnsupportedError } from '../../../../web/src/shared/save-file.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
 import styles from './Settings.module.css'
 
@@ -98,13 +102,19 @@ const SettingsContent = () => {
             <>
               <ThemeSetting />
               <LocaleSetting />
+              <CompactionSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <VersionRow />
             </>
           ) : (
             <>
+              <AccountField />
               <ApiKeyField editor={apiKeyEditor} />
-              <ImportHistory historyImport={historyImport} disabled={historyBusy} />
+              {/* 体验模式不落盘，导入只会留下刷新即丢的暂存数据，因此不提供入口。 */}
+              {__CHAT_MEMORY_ONLY__ ? null : (
+                <ImportHistory historyImport={historyImport} disabled={historyBusy} />
+              )}
               <ExportHistory disabled={historyBusy} />
               <SettingCell
                 label={t('deleteAllSessions')}
@@ -285,6 +295,33 @@ const LocaleSetting = () => {
             { value: 'en-US', label: t('settingsLocaleEnUS'), lang: 'en' },
           ]}
           onChange={setLocale}
+        />
+      }
+    />
+  )
+}
+
+/** 上下文压缩策略：对话接近上下文上限时如何取舍历史。 */
+const CompactionSetting = () => {
+  const t = useTranslate()
+  const compaction = useSettings((state) => state.compaction)
+  return (
+    <SettingCell
+      label={t('settingsCompaction')}
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsCompaction')}
+          value={compaction}
+          options={[
+            { value: 'none', label: t('settingsCompactionNone') },
+            { value: 'harness', label: t('settingsCompactionHarness') },
+            { value: 'claude', label: t('settingsCompactionClaude') },
+            { value: 'librechat', label: t('settingsCompactionLibrechat') },
+            { value: 'openwebui', label: t('settingsCompactionOpenwebui') },
+            { value: 'programmatic', label: t('settingsCompactionProgrammatic') },
+          ]}
+          onChange={setCompaction}
         />
       }
     />
@@ -524,14 +561,17 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
     setStatus(null)
     try {
       const { name, blob } = await exportHistory()
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = name
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      const saved = await saveFile(name, blob)
+      setStatus({
+        key: saved.viaNative ? 'historyExportSavedToDownloads' : 'historyExportDownloaded',
+        params: { name: saved.filename },
+      })
     } catch (error) {
-      setStatus(errorStatus('historyExportFailed', error))
+      setStatus(
+        error instanceof SaveUnsupportedError
+          ? { key: 'historyExportUnsupported' }
+          : errorStatus('historyExportFailed', error)
+      )
     } finally {
       setBusy(false)
     }

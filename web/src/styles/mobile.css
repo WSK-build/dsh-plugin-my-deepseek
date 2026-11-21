@@ -1,0 +1,8 @@
+/* Standalone page: the demo fills html/body/#root, so the shell only resets the
+ * document box that the demo's layout measures against. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}

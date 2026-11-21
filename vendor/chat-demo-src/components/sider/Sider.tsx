@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
-import { BrandWordmark } from '../../../../src/brand-wordmark.js'
+import { BrandWordmark } from '../../../../web/src/shared/brand-wordmark.js'
 import { useTranslate } from '../../i18n/index.js'
 import { IconPanelLeftOutline16, IconSettingsOutline16, NewChatIcon } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
