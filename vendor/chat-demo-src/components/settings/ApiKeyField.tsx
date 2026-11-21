@@ -44,8 +44,9 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
               placeholder={t('apiKeyPlaceholder')}
               autoComplete="off"
               spellCheck={false}
-              // 移动端打开设置时不弹键盘，点编辑后才聚焦
-              autoFocus={!isMobile || editing}
+              // 只在用户主动进入编辑态时聚焦：切到本页就弹键盘会挡住内容，
+              // 而多数人已经不在这里填 Key（账号登录即可用）。
+              autoFocus={editing}
               value={form.value}
               onChange={(event) => form.setValue(event.target.value)}
               onKeyDown={(event) => {

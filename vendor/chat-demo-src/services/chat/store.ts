@@ -1,7 +1,10 @@
 import { create } from 'zustand'
+import { currentModel } from '../../../../web/src/shared/model.js'
+import { compactHistory, canRetryAfterOverflow } from '../../../../web/src/shared/compact-history.js'
+import { forkSession, nextForkTitle } from '../../../../web/src/shared/fork.js'
 import { createId } from '../../utils/id.js'
 import { ApiError, streamMessage } from '../api/client.js'
-import type { ChatModel, CreateMessageRequest } from '../api/types.js'
+import type { CreateMessageRequest } from '../api/types.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
 import { useSettings } from '../settings.js'
@@ -31,9 +34,6 @@ import {
   type SessionSummary,
   type UserMessage,
 } from './types.js'
-
-/** deepseek-flash 同时支持深度思考与图片输入 */
-const MODEL: ChatModel = 'deepseek-flash'
 
 /** 所有生成请求统一携带的助手身份说明 */
 const SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
@@ -261,7 +261,7 @@ const createReply = (): AssistantMessage => {
     id: createId(),
     role: 'assistant',
     createdAt: Date.now(),
-    model: MODEL,
+    model: currentModel(),
     thinking,
     search,
     prefix: true,
@@ -455,6 +455,36 @@ export const selectSession = (id: string) => {
     void ensureSessionLoaded(id)
     trimSessionCache()
   }
+}
+
+/**
+ * 从指定消息分叉出新会话并切换过去。
+ *
+ * 分叉复制该消息处完整的消息树，源会话保持不变；标题按既有分叉编号续号。
+ * 会话正在生成时不允许分叉，避免把未收尾的内容复制出去。
+ */
+export const forkFromMessage = (sessionId: string, messageId: string): boolean => {
+  if (get().importingHistory || deletingSessions.has(sessionId)) {
+    return false
+  }
+  if (getStreamController(sessionId)) {
+    return false
+  }
+  const source = getSession(sessionId)
+  if (!source) {
+    return false
+  }
+  const titles = get().sessions.map((session) => session.title)
+  const forked = forkSession(source, messageId, { newId: createId() })
+  forked.title = nextForkTitle(source.title, titles)
+  touchSession(forked.id)
+  set((state) => ({
+    sessions: [toSessionSummary(forked), ...state.sessions],
+    sessionCache: { ...state.sessionCache, [forked.id]: forked },
+    activeId: forked.id,
+  }))
+  persist(forked.id)
+  return true
 }
 
 export const renameSession = (id: string, title: string) => {
@@ -710,7 +740,7 @@ export const continueReply = (sessionId: string, messageId: string) => {
   const reply: AssistantMessage = {
     ...previous,
     // 未记录请求配置的回复，续写时使用默认模型和当前开关。
-    model: previous.model ?? MODEL,
+    model: previous.model ?? currentModel(),
     thinking: previous.thinking ?? thinking,
     search: previous.search ?? search,
     status: 'pending',
@@ -975,6 +1005,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   }
   streamFlushes.set(sessionId, flush)
 
+  // 上下文超限只额外重发一次，且此后按缩小的预算重新压缩。
+  let overflowRetried = false
+  let budgetScale = 1
   try {
     for (let attempt = 0; ; attempt += 1) {
       /** 附件补齐前出错属于上传失败，请求还没有发出 */
@@ -991,7 +1024,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         updateReply(sessionId, reply)
         persist(sessionId)
         const messages = toRequestMessages(
-          prepared.history,
+          await compactHistory(prepared.history, {
+            strategy: useSettings.getState().compaction,
+            sessionId,
+            apiKey: useSettings.getState().apiKey ?? '',
+            signal: controller.signal,
+            model: initial.model ?? currentModel(),
+            budgetScale,
+          }),
           prepared.question,
           prepared.prefix,
           initial.thinking ?? false,
@@ -1000,7 +1040,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         const events = streamMessage(
           useSettings.getState().apiKey ?? '',
           {
-            model: initial.model ?? MODEL,
+            model: initial.model ?? currentModel(),
             system: SYSTEM_PROMPT,
             messages,
             thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
@@ -1059,6 +1099,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             reply = settleReply(reply, 'stopped', Date.now())
             break
           }
+          continue
+        }
+        // 上下文超限：压得更狠后重发一次。已收到内容块时不重发，否则会重复正文。
+        if (
+          !receivedContent &&
+          canRetryAfterOverflow({
+            sessionId,
+            strategy: useSettings.getState().compaction,
+            error,
+            alreadyRetried: overflowRetried,
+          })
+        ) {
+          overflowRetried = true
+          budgetScale = 0.5
           continue
         }
         if (error instanceof ApiError && error.kind === 'interrupted' && reply.stopReason) {

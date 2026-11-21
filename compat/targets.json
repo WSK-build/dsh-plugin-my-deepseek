@@ -1,0 +1,14 @@
+{
+  "webviewFloor": {
+    "browser": "chrome",
+    "version": 110,
+    "rationale": "Android 与 HarmonyOS 的 WebView 运行时版本由系统 WebView 组件决定，不随应用升级而变；应用可运行的最低运行时按 Chrome 110 计，所有发布产物都不得依赖更高版本的 API。"
+  },
+  "syntaxTarget": "es2022",
+  "sources": ["web/src", "vendor/chat-demo-src"],
+  "sourceExtensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+  "skipDirectories": ["node_modules", "dist", "build", "__tests__", "__mocks__"],
+  "skipFileSuffixes": [".d.ts", ".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
+  "bundles": ["build/mobile/www/app.js", "dsh-plugin/dist/client.js", "website/app/app.js"],
+  "budgetRationale": "测试与类型声明不进入 WebView 产物，扫描时排除；产物本身由 es-check 与产物扫描双向覆盖，避免只在源码层判断。"
+}

@@ -5,3 +5,24 @@ build/
 .DS_Store
 Thumbs.db
 .npmrc
+
+# 生成物：各壳的网页 payload（由 web/ 构建同步，永不入库）
+android/www/
+website/app/
+harmony/entry/src/main/resources/rawfile/www/
+
+# Capacitor / Gradle 生成物与机器相关配置
+android/node_modules/
+android/android/app/build/
+android/android/build/
+android/android/.gradle/
+android/android/local.properties
+android/android/capacitor-cordova-android-plugins/
+android/local.properties
+
+# 鸿蒙构建生成物
+harmony/**/build/
+harmony/.hvigor/
+harmony/oh_modules/
+harmony/local.properties
+harmony/.idea/

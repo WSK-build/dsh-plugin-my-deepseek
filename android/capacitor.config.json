@@ -1,0 +1,12 @@
+{
+  "appId": "com.wskbuild.mydeepseek",
+  "appName": "My DeepSeek",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["platform.deepseek.com"]
+  }
+}

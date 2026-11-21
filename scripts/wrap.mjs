@@ -1,8 +1,7 @@
 /**
- * Wraps the CommonJS bundle in the Harness client module protocol and hands the
- * extracted stylesheet to the entry through one global, so the entry injects it
- * itself. (The bundle's exports are getter-only, so patching `apply` from here
- * would silently fail.)
+ * 把 CommonJS 产物包装成 Harness 客户端模块协议，并通过一个全局变量把提取出的
+ * 样式表交给入口，由入口自行注入。
+ * 产物的导出是只读 getter，因此不能在这里改写 `apply`——那样只会静默失败。
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
@@ -40,7 +39,7 @@ ${body}
 });
 `
 
-const target = path.join(root, 'dist')
+const target = path.join(root, 'dsh-plugin', 'dist')
 mkdirSync(target, { recursive: true })
 writeFileSync(path.join(target, 'client.js'), file)
-console.log(`wrote dist/client.js (${(file.length / 1024 / 1024).toFixed(1)} MiB)`)
+console.log(`wrote dsh-plugin/dist/client.js (${(file.length / 1024 / 1024).toFixed(1)} MiB)`)

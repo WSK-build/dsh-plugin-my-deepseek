@@ -8,6 +8,7 @@ import {
   IconThinkOutline14,
 } from '../base/icons.js'
 import { setSearch, setThinking, useSettings } from '../../services/settings.js'
+import { accountState } from '../../../../web/src/shared/account.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -51,6 +52,9 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   )
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
+  // 附件上传走 Files API 的 multipart 请求，只能用 API Key 鉴权；
+  // 仅账号登录时上传必然被拒，因此入口保持禁用并说明原因。
+  const uploadBlocked = useSettings((state) => state.apiKey === null && accountState().phase === 'signed-in')
   const isMobile = useIsMobile()
   const search = useSettings((state) => state.search)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -245,8 +249,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             size="m"
             tone="primary"
             icon={<IconPaperclipOutline16 />}
-            tooltip={t('uploadFile')}
-            disabled={importingHistory}
+            tooltip={uploadBlocked ? t('uploadNeedsApiKey') : t('uploadFile')}
+            disabled={importingHistory || uploadBlocked}
             onClick={() => ensureApiKey() && fileInputRef.current?.click()}
           />
           <input

@@ -198,6 +198,17 @@
   color: var(--dsc-alias-label-tertiary);
 }
 
+/* 说明文字里的行内链接：沿用说明的字号与配色，只加下划线以示可点。 */
+.descriptionLink {
+  color: var(--dsc-alias-label-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.descriptionLink:hover {
+  color: var(--dsc-alias-label-primary);
+}
+
 .error {
   font-size: 12px;
   line-height: 18px;

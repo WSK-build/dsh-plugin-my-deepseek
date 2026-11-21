@@ -1,0 +1,113 @@
+{
+  "note": "收录范围以 WebView 门槛 Chrome 110 为中轴：aboveFloor 是门槛之上才提供的 API，出现在源码或产物中即为越界；atFloor 是 Chrome 110 恰好提供的 API，属于门槛本身的一部分，允许使用但需要显式登记，因为这些 API 不会被 chrome >= 110 的转译目标降级。Chrome 首次支持版本取自 MDN browser-compat-data。",
+  "aboveFloor": [
+    {
+      "api": "Object.groupBy",
+      "chrome": 117
+    },
+    {
+      "api": "Map.groupBy",
+      "chrome": 117
+    },
+    {
+      "api": "Promise.withResolvers",
+      "chrome": 119
+    },
+    {
+      "api": "Array.fromAsync",
+      "chrome": 121
+    },
+    {
+      "api": "String.prototype.isWellFormed",
+      "chrome": 111
+    },
+    {
+      "api": "String.prototype.toWellFormed",
+      "chrome": 111
+    },
+    {
+      "api": "AbortSignal.any",
+      "chrome": 116
+    },
+    {
+      "api": "URL.canParse",
+      "chrome": 120
+    },
+    {
+      "api": "Set.prototype.union",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.intersection",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.difference",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.symmetricDifference",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.isSubsetOf",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.isSupersetOf",
+      "chrome": 122
+    },
+    {
+      "api": "Set.prototype.isDisjointFrom",
+      "chrome": 122
+    },
+    {
+      "api": "RegExp.escape",
+      "chrome": 136
+    },
+    {
+      "api": "document.startViewTransition",
+      "chrome": 111
+    }
+  ],
+  "atFloor": [
+    {
+      "api": "Array.prototype.toReversed",
+      "chrome": 110
+    },
+    {
+      "api": "Array.prototype.toSorted",
+      "chrome": 110
+    },
+    {
+      "api": "Array.prototype.toSpliced",
+      "chrome": 110
+    },
+    {
+      "api": "Array.prototype.with",
+      "chrome": 110
+    }
+  ],
+  "knownFindings": [
+    {
+      "path": "build/mobile/www/app.js",
+      "api": "URL.canParse",
+      "reason": "该调用来自压缩后的第三方依赖 @braintree/sanitize-url@7.1.2（经 mermaid 11.10.1 引入），不在本仓库源码内。门槛 Chrome 110 上 URL.canParse 为 undefined，该模块的 URL 清洗函数会抛错；修复方式是升级或替换上游依赖，超出本仓库源码的改动范围，故登记为已知项。"
+    },
+    {
+      "path": "dsh-plugin/dist/client.js",
+      "api": "URL.canParse",
+      "reason": "与移动端产物同一个第三方依赖。该产物运行在 DSH 宿主页面的内置 Chromium 中，宿主版本高于 Chrome 120，实际不受门槛影响；登记为已知项以免同一处上游代码被重复排查。"
+    },
+    {
+      "path": "website/app/app.js",
+      "api": "URL.canParse",
+      "reason": "与移动端产物同一个第三方依赖（@braintree/sanitize-url，经 mermaid 引入）。体验站由现代浏览器访问，Chrome 120 以下的浏览器打开时该模块的 URL 清洗函数会抛错；修复方式是升级或替换上游依赖，不在本仓库源码范围内，故与另两个产物一并登记。"
+    }
+  ],
+  "knownItems": [
+    "构建目标与 WebView 门槛已对齐：scripts/build.mjs 与 scripts/build-mobile.mjs 的 chrome 与 edge 目标都是 110，与 compat/targets.json 的 webviewFloor 一致。tsx 源码里的 toReversed / toSorted 属于 Chrome 110 才提供的 API，转译目标 110 既不降级它们也不注入垫片，因此在这些 API 的首次可用版本上直接生效；更低的运行时由版本门槛拒绝进入。",
+    "产物扫描只对静态命名空间调用（如 Object.groupBy、URL.canParse）生效。压缩后的产物把所有代码挤进少数几行，原型方法名在压缩代码里与任意对象的同名方法无法区分（例如图布局库的 collection.union 与 Set.prototype.union 同形），对产物做原型方法匹配会产生大量误报，因此原型方法只在源码层校验。",
+    "CSS 侧的兼容性由 lightningcss 按同一 targets 降级，本工具只覆盖 JavaScript 运行时 API，不负责选择器与属性的可用性判断。"
+  ]
+}

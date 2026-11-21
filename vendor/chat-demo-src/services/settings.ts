@@ -7,7 +7,7 @@ export type Locale = 'zh-CN' | 'en-US'
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
-/** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
+/** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态、上下文压缩策略 */
 type Settings = {
   apiKey: string | null
   locale: Locale
@@ -17,7 +17,17 @@ type Settings = {
   thinking: boolean
   search: boolean
   siderCollapsed: boolean
+  /** 上下文压缩策略，缺省使用自动摘要 */
+  compaction: CompactionPreference
 }
+
+export type CompactionPreference =
+  | 'none'
+  | 'harness'
+  | 'claude'
+  | 'librechat'
+  | 'openwebui'
+  | 'programmatic'
 
 const KEYS = {
   apiKey: 'chat-demo:api-key',
@@ -28,9 +38,14 @@ const KEYS = {
   thinking: 'chat-demo:thinking',
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
+  compaction: 'chat-demo:compaction',
 } as const
 
 const read = (key: string) => {
+  // 体验模式不读取任何本地保存的设置，页面刷新后回到默认状态。
+  if (typeof __CHAT_MEMORY_ONLY__ !== 'undefined' && __CHAT_MEMORY_ONLY__) {
+    return null
+  }
   try {
     return localStorage.getItem(key)
   } catch {
@@ -39,6 +54,10 @@ const read = (key: string) => {
 }
 
 const write = (key: string, value: string | null) => {
+  // 体验模式不写入本地存储；API Key 与界面偏好都只存在于本次会话。
+  if (typeof __CHAT_MEMORY_ONLY__ !== 'undefined' && __CHAT_MEMORY_ONLY__) {
+    return
+  }
   try {
     if (value === null) {
       localStorage.removeItem(key)
@@ -87,6 +106,23 @@ const initialThemePreference = (): ThemePreference => {
 /** 未保存过时使用服务端默认音色 stella（海星） */
 const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
 
+const COMPACTION_VALUES: readonly CompactionPreference[] = [
+  'none',
+  'harness',
+  'claude',
+  'librechat',
+  'openwebui',
+  'programmatic',
+]
+
+/** 未保存过时使用自动摘要 */
+const initialCompaction = (): CompactionPreference => {
+  const saved = read(KEYS.compaction)
+  return COMPACTION_VALUES.includes(saved as CompactionPreference)
+    ? (saved as CompactionPreference)
+    : 'harness'
+}
+
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
   locale: initialLocale(),
@@ -96,7 +132,13 @@ export const useSettings = create<Settings>(() => ({
   thinking: read(KEYS.thinking) === 'true',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
+  compaction: initialCompaction(),
 }))
+
+export const setCompaction = (compaction: CompactionPreference) => {
+  write(KEYS.compaction, compaction)
+  useSettings.setState({ compaction })
+}
 
 export const setLocale = (locale: Locale) => {
   write(KEYS.locale, locale)

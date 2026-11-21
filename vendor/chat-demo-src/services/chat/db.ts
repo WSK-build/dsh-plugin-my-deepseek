@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { toSessionSummary, type Session, type SessionSummary } from './types.js'
-import { deleteHostSession, loadHostSession, loadHostSessions, putHostSession, putHostSessions } from '../../../../src/store-api.js'
+import { deleteHostSession, loadHostSession, loadHostSessions, putHostSession, putHostSessions } from '../../../../web/src/shared/store-api.js'
 
 /**
  * 会话一律写本地磁盘（由插件宿主持久化），浏览器只保留内存缓存与附件原件。
@@ -22,6 +22,9 @@ const loadHostCache = async (): Promise<Map<string, Session>> => {
 
 /** 历史导入后把暂存里刚提交的会话整份推到磁盘（导入是整体替换语义）。 */
 export const syncAllToHost = async (): Promise<number> => {
+  if (MEMORY_ONLY) {
+    return 0
+  }
   const sessions = await (await getDB()).getAll('sessions')
   if (sessions.length > 0) await putHostSessions(sessions as never)
   hostCache = new Map(sessions.map((session) => [session.id, session]))
@@ -147,6 +150,10 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
 export const deleteSession = async (sessionId: string): Promise<void> => {
   hostCache?.delete(sessionId)
   await deleteHostSession(sessionId)
+  if (MEMORY_ONLY) {
+    // 体验模式没有持久化的原件可清理；内存随页面销毁，无需按会话回收。
+    return
+  }
   const tx = (await getDB()).transaction(['sessionSummaries', 'files'], 'readwrite')
   await Promise.all([
     (async () => {
@@ -168,18 +175,41 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   ])
 }
 
+/**
+ * 体验模式：附件只留在内存里，刷新即丢弃。
+ *
+ * 会话与设置已由各自的后端遵守内存模式，附件原件此前仍会写入 IndexedDB，
+ * 与“不保存任何数据”的承诺冲突，因此这里统一拦截。
+ */
+const MEMORY_ONLY = typeof __CHAT_MEMORY_ONLY__ !== 'undefined' && __CHAT_MEMORY_ONLY__
+
+const memoryFiles = new Map<string, StoredFile>()
+
 const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {
+  if (MEMORY_ONLY) {
+    for (const file of files) {
+      memoryFiles.set(file.id, file)
+    }
+    return
+  }
   const tx = (await getDB()).transaction(store, 'readwrite')
   await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
 }
 
 export const saveFiles = (files: StoredFile[]): Promise<void> => putFiles('files', files)
 
-export const loadFile = async (id: string): Promise<Blob | undefined> =>
-  (await (await getDB()).get('files', id))?.blob
+export const loadFile = async (id: string): Promise<Blob | undefined> => {
+  if (MEMORY_ONLY) {
+    return memoryFiles.get(id)?.blob
+  }
+  return (await (await getDB()).get('files', id))?.blob
+}
 
 /** 清空导入暂存：开始导入前清除上次中断（如关闭页面）遗留的数据，导入失败后清除本次写入。 */
 export const clearStaging = async (): Promise<void> => {
+  if (MEMORY_ONLY) {
+    return
+  }
   const tx = (await getDB()).transaction(['sessionsStaging', 'filesStaging'], 'readwrite')
   await Promise.all([
     tx.objectStore('sessionsStaging').clear(),
@@ -189,6 +219,9 @@ export const clearStaging = async (): Promise<void> => {
 }
 
 export const addStagingSession = async (session: Session): Promise<void> => {
+  if (MEMORY_ONLY) {
+    return
+  }
   await (await getDB()).add('sessionsStaging', session)
 }
 
@@ -197,6 +230,9 @@ export const saveStagingFiles = (files: StoredFile[]): Promise<void> =>
 
 /** 图片位于会话 JSON 之后；全部读完后回填具体 MIME，保留归档给出的 isImage 标识。 */
 export const updateStagingFileTypes = async (types: ReadonlyMap<string, string>): Promise<void> => {
+  if (MEMORY_ONLY) {
+    return
+  }
   const tx = (await getDB()).transaction('sessionsStaging', 'readwrite')
   await Promise.all([
     (async () => {
@@ -229,6 +265,10 @@ export const updateStagingFileTypes = async (types: ReadonlyMap<string, string>)
  * 逐条游标复制，同一时间只读取一条记录；事务失败时整体回滚，正式数据不变。
  */
 export const commitStaging = async (): Promise<SessionSummary[]> => {
+  if (MEMORY_ONLY) {
+    // 体验模式没有暂存可提交：导入入口不提供，这里也不去打开浏览器数据库。
+    return []
+  }
   const summaries: SessionSummary[] = []
   const tx = (await getDB()).transaction(
     ['sessions', 'sessionSummaries', 'files', 'sessionsStaging', 'filesStaging'],

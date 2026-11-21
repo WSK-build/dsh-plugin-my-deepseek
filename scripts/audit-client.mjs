@@ -1,7 +1,7 @@
 /**
- * Static audit of a built client artifact: checks the loader envelope, the
- * module id against the package name, the module requests, and the embedded
- * stylesheet. Usage: node tools/audit-client.mjs <client.js> <expected-package-name>
+ * 客户端产物的静态审计：校验加载器外层结构、模块 id 与包名是否一致、
+ * 模块依赖清单与内联样式表。
+ * 用法：node scripts/audit-client.mjs <client.js> <期望的包名>
  */
 import { readFileSync, statSync } from 'node:fs'
 import path from 'node:path'

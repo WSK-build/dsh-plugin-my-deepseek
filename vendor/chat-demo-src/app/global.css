@@ -28,7 +28,7 @@
   --dsc-scroll-color-hover: rgba(0, 0, 0, 0.15);
 }
 
-body[data-dsc-dark] {
+body[data-dsc-dark] .dsc-root {
   color-scheme: dark;
 }
 

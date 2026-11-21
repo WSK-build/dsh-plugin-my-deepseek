@@ -1,0 +1,83 @@
+apply plugin: 'com.android.application'
+
+// versionName 与 npm 包、git tag 是同一个数字：tag 由 CI 校验必须等于 package.json
+// 的 version，因此这里读同一个文件，不另外维护一份。
+def appVersionName = '1.0.0'
+def packageVersionFile = rootProject.file('../../package.json')
+if (packageVersionFile.exists()) {
+    def parsed = new groovy.json.JsonSlurper().parse(packageVersionFile)
+    if (parsed.version) {
+        appVersionName = parsed.version.toString()
+    }
+}
+
+// versionCode 与介面上的版本号无关，只用于让系统区分新旧，必须严格递增。
+// 它保存在 android/android/version.properties，每次发版加一。
+def appVersionCode = 1
+def versionCodeFile = rootProject.file('version.properties')
+if (versionCodeFile.exists()) {
+    def versionProperties = new Properties()
+    versionCodeFile.withInputStream { versionProperties.load(it) }
+    def raw = versionProperties.getProperty('versionCode')
+    if (raw != null && raw.trim().isInteger()) {
+        appVersionCode = raw.trim() as int
+    }
+}
+
+// release 产物由 scripts/sign-apk.mjs 在构建后签名：Gradle 启用 V3 时会跳过 V2，
+// 而两个方案都要有时只能显式调用 apksigner。这里只产出未签名包。
+android {
+    namespace = "com.wskbuild.mydeepseek"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.wskbuild.mydeepseek"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    // HTTP client for the account sign-in bridge (platform.deepseek.com
+    // auth_init/auth_exchange and token-attached API requests).
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

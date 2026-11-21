@@ -1,0 +1,11 @@
+{
+  "name": "my-deepseek-harmony-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets": "node make-harmony-assets.mjs ."
+  },
+  "devDependencies": {
+    "sharp": "^0.34.0"
+  }
+}

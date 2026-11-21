@@ -1,23 +1,34 @@
 /**
- * Privacy scan for a package that is about to be shared.
- * Usage: node scripts/privacy-scan.mjs <directory>
+ * 发布前的隐私扫描。
+ * 用法：node scripts/privacy-scan.mjs <目录>
  *
- * Detects absolute home paths, credential literals and machine-specific names.
- * Add extra terms for a local run without committing them:
- *   PRIVACY_DENY="term-a,term-b" node scripts/privacy-scan.mjs .
+ * 检测用户主目录绝对路径、明文凭据与本机专有名称。
+ * 额外词表可通过环境变量临时追加，不必写进仓库：
+ *   PRIVACY_DENY="词一,词二" node scripts/privacy-scan.mjs .
  *
- * Skips node_modules, build, .git and *.tgz. Prints file:line plus a short
- * excerpt, never a whole secret.
+ * 跳过 node_modules、build、.git、工具缓存与 *.tgz；命中时只输出文件:行号与
+ * 片段，不打印完整敏感内容。
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(process.argv[2] ?? '.')
-const skipDirs = new Set(['node_modules', 'build', '.git', '.dist-test'])
+// 构建缓存里记录的是本机绝对路径，不是仓库内容；扫描它们只会产生噪声。
+const skipDirs = new Set([
+  'node_modules',
+  'build',
+  '.git',
+  '.dist-test',
+  '.gradle',
+  '.hvigor',
+  'oh_modules',
+  '.idea',
+])
 const skipExt = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp',
   '.woff', '.woff2', '.ttf', '.otf', '.zip', '.gz', '.tgz',
   '.mp3', '.mp4', '.pdf',
+  '.bin', '.dex', '.apk', '.hap', '.class', '.jar', '.keystore', '.jks',
 ])
 
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -40,9 +51,11 @@ const patterns = [
 ]
 
 const files = []
+// 机器相关配置按约定不入库，内容必然带本机绝对路径；扫描它们没有意义。
+const skipNames = new Set(['local.properties'])
 const walk = (dir) => {
   for (const name of readdirSync(dir)) {
-    if (skipDirs.has(name) || skipExt.has(path.extname(name).toLowerCase())) continue
+    if (skipDirs.has(name) || skipNames.has(name) || skipExt.has(path.extname(name).toLowerCase())) continue
     const full = path.join(dir, name)
     const info = statSync(full)
     if (info.isDirectory()) walk(full)

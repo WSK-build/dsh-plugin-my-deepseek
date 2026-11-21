@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "My DeepSeek entry module",
+  "main": "",
+  "author": "WSK-build",
+  "license": "MIT",
+  "dependencies": {}
+}

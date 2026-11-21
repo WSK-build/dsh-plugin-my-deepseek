@@ -1,4 +1,9 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
+import {
+  accountShouldHandle,
+  dispatchAccountRequest,
+  reportAccountTokenRejected,
+} from '../../../../web/src/shared/api-auth.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
 import type {
@@ -51,22 +56,70 @@ const isErrorBody = (value: unknown): value is ApiErrorBody =>
 const readErrorResponse = async (
   response: Response,
   kind: 'http' | 'protocol' = 'http',
-  fallback = response.statusText
+  fallback = response.statusText,
+  /** 本次请求由账号令牌鉴权：401 与业务码 40003 才表示账号令牌失效。 */
+  accountAuthenticated = false
 ): Promise<ApiError> => {
   const text = await response.text().catch(() => '')
   let message = text || fallback
+  const rejectAccountToken = () => {
+    if (accountAuthenticated) {
+      reportAccountTokenRejected()
+    }
+  }
   try {
     const body: unknown = JSON.parse(text)
     if (isErrorBody(body)) {
       message = body.error.message
     }
+    if (response.status === 401 || (body as { code?: number } | null)?.code === 40003) {
+      rejectAccountToken()
+    }
   } catch {
     // 非 JSON 响应体直接展示原文
+    if (response.status === 401) {
+      rejectAccountToken()
+    }
   }
   return new ApiError(kind, message, response.status)
 }
 
 export const request = async (url: string, init: RequestInit): Promise<Response> => {
+  // 账号模式由原生壳代发请求：令牌不进入页面，且不受 WebView 的跨域限制。
+  // 显式携带凭据的请求不接管，见 accountShouldHandle；FormData 附件上传回退普通 fetch。
+  let viaAccount = false
+  if (accountShouldHandle(init.headers) && typeof init.body !== 'object') {
+    const headers: Record<string, string> = {}
+    new Headers(init.headers).forEach((value, name) => {
+      if (name !== 'x-api-key') {
+        headers[name] = value
+      }
+    })
+    let response: Response | null
+    try {
+      response = await dispatchAccountRequest(
+        url,
+        {
+          method: init.method ?? 'GET',
+          headers,
+          ...(typeof init.body === 'string' ? { body: init.body } : {}),
+        },
+        init.signal
+      )
+    } catch (error) {
+      if (init.signal?.aborted) {
+        throw error
+      }
+      throw new ApiError('network', error instanceof Error ? error.message : String(error))
+    }
+    if (response !== null) {
+      viaAccount = true
+      if (!response.ok) {
+        throw await readErrorResponse(response, 'http', response.statusText, viaAccount)
+      }
+      return response
+    }
+  }
   let response: Response
   try {
     response = await fetch(url, init)
@@ -77,7 +130,7 @@ export const request = async (url: string, init: RequestInit): Promise<Response>
     throw new ApiError('network', error instanceof Error ? error.message : String(error))
   }
   if (!response.ok) {
-    throw await readErrorResponse(response)
+    throw await readErrorResponse(response, 'http', response.statusText, viaAccount)
   }
   return response
 }

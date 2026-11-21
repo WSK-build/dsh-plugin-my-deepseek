@@ -1,20 +1,22 @@
 /**
- * Bundles the vendored official chat-demo into one CommonJS module that
- * externalizes React, so the Harness page's own React instance renders it.
+ * 把 vendored 的官方 chat-demo 打成单个 CommonJS 模块，并把 React 作为外部依赖，
+ * 由 Harness 页面自带的 React 实例渲染。
  */
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { rspack } from '@rspack/core'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const targets = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
+const packageVersion = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version
+const targets = ['chrome >= 110', 'edge >= 110', 'safari >= 16', 'firefox >= 110']
 
 /** @type {import('@rspack/core').Configuration} */
 const config = {
   mode: 'production',
   target: 'web',
   devtool: false,
-  entry: path.join(root, 'src', 'entry.tsx'),
+  entry: path.join(root, 'web', 'src', 'entries', 'dsh.tsx'),
   output: {
     path: path.join(root, 'build', 'out'),
     filename: 'client.js',
@@ -23,8 +25,7 @@ const config = {
     publicPath: 'auto',
     clean: true,
   },
-  // The page supplies React; a second copy would not be renderable inside the
-  // Harness tree.
+  // React 由页面提供：再打一份进去会与 Harness 树里的实例互不兼容。
   externals: {
     react: 'commonjs react',
     'react/jsx-runtime': 'commonjs react/jsx-runtime',
@@ -62,8 +63,7 @@ const config = {
         },
         type: 'javascript/auto',
       },
-      // KaTeX ships fonts; inline them so the single-file bundle needs no
-      // package asset route.
+      // KaTeX 自带字体，内联进产物后单文件包不再需要包内资源路由。
       { test: /\.(woff2?|ttf|otf|eot)$/, type: 'asset/inline' },
     ],
   },
@@ -74,8 +74,13 @@ const config = {
   plugins: [
     new rspack.DefinePlugin({
       __API_ORIGIN__: JSON.stringify(process.env.DSH_CHAT_API_ORIGIN ?? 'https://api.deepseek.com'),
+      // 会话由插件宿主自己保存，因此页面不会进入仅内存模式。
+      __CHAT_MEMORY_ONLY__: JSON.stringify(false),
+      // 版本号与目标形态在构建期写死：设置页显示版本、决定「检查更新」查哪个源。
+      __APP_VERSION__: JSON.stringify(packageVersion),
+      __APP_TARGET__: JSON.stringify('plugin'),
     }),
-    // The Harness module loader knows one bundle, not code-split chunks.
+    // Harness 的模块加载器只认单个 bundle，不支持分包。
     new rspack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
   ],
   performance: { hints: false },
@@ -96,5 +101,5 @@ rspack(config, (error, stats) => {
     process.exitCode = 1
     return
   }
-  console.log('bundled src/entry.tsx -> build/out/client.js')
+  console.log('bundled web/src/entries/dsh.tsx -> build/out/client.js')
 })
